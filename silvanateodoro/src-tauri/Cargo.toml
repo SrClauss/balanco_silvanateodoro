@@ -15,6 +15,10 @@ build = "build.rs"
 name = "silvanateodoro_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "test-connection"
+path = "src/test_connection.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 dotenv = "0.15"
