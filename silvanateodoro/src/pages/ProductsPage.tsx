@@ -14,6 +14,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(false);
   const [openForm, setOpenForm] = useState(false);
   const [editProduct, setEditProduct] = useState<any | null>(null);
+  const [productFormResetKey, setProductFormResetKey] = useState<number>(0);
 
   const columns: GridColDef[] = [
     { field: 'descricao', headerName: 'Descrição', flex: 1, editable: false },
@@ -51,7 +52,7 @@ export default function ProductsPage() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <h2>Produtos</h2>
-        <Button variant="contained" onClick={() => setOpenForm(true)}>Novo produto</Button>
+        <Button variant="contained" onClick={() => { setEditProduct(null); setProductFormResetKey(k => k + 1); setOpenForm(true); }}>Novo produto</Button>
       </Box>
 
       {mobile ? (
@@ -79,6 +80,7 @@ export default function ProductsPage() {
             pagination
             paginationMode="server"
             paginationModel={{ page, pageSize }}
+            pageSizeOptions={[10, 20, 50]}
             rowCount={total}
             onPaginationModelChange={(model:any) => { setPage(model.page); setPageSize(model.pageSize); }}
             loading={loading}
@@ -104,7 +106,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <ProductForm open={openForm} onClose={() => { setOpenForm(false); setEditProduct(null); fetchData(page, pageSize); }} onSaved={() => { notify.notify({ message: 'Produto salvo', severity: 'success' }); }} />
+      <ProductForm open={openForm} resetKey={productFormResetKey} onClose={() => { setOpenForm(false); setEditProduct(null); fetchData(page, pageSize); }} onSaved={() => { notify.notify({ message: 'Produto salvo', severity: 'success' }); }} />
       <ProductForm open={!!editProduct && openForm} product={editProduct} onClose={() => { setOpenForm(false); setEditProduct(null); fetchData(page, pageSize); }} onSaved={() => { notify.notify({ message: 'Produto atualizado', severity: 'success' }); }} />
 
     </Box>

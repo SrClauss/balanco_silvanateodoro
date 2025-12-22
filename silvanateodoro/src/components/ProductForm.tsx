@@ -1,31 +1,55 @@
-import { useEffect, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip } from '@mui/material';
+import { useEffect, useState, useRef } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip, Box } from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 import MicrophoneInput from './MicrophoneInput';
 import CreateEntityDialog from './CreateEntityDialog';
 import { useNotify } from '../lib/Notifications';
+import type { Produto, Tag, Fornecedor, Marca } from '../types/entities';
 
-type Props = { open: boolean; onClose: () => void; product?: any; onSaved?: () => void };
+// resetKey: when parent increments it, the form will reset to empty values (used for "Novo produto")
+type Props = { open: boolean; onClose: () => void; product?: Produto | null; onSaved?: () => void; resetKey?: number };
 
-export default function ProductForm({ open, onClose, product, onSaved }: Props){
+export default function ProductForm({ open, onClose, product, onSaved, resetKey }: Props){
   const [descricao, setDescricao] = useState('');
+  const [codigoInterno, setCodigoInterno] = useState('');
+  const [tamanho, setTamanho] = useState('');
+  const [precoCusto, setPrecoCusto] = useState<number | undefined>(undefined);
+  const [precoVenda, setPrecoVenda] = useState<number | undefined>(undefined);
 
+  // preserve state across modal close by default. Parent can reset by bumping `resetKey`.
+  const initializedForProductRef = useRef<number | null>(null);
   useEffect(()=>{
-    if(open && product){
+    // if product changes, initialize to product values
+    if(product){
       setDescricao(product.descricao || '');
+      setCodigoInterno(product.codigo_interno || '');
+      setTamanho(product.tamanho || '');
+      setPrecoCusto(product.preco_custo ?? undefined);
+      setPrecoVenda(product.preco_venda ?? undefined);
       setSelectedFornecedor(product.fornecedor || null);
-      setSelectedMarca(product.marca ? { nome: product.marca } : null);
+      setSelectedMarca((product.marca && typeof product.marca === 'string') ? { nome: product.marca } : (product.marca as any) || null);
       setSelectedTags(product.tags || []);
-    } else if(open && !product){
-      setDescricao(''); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]);
+      initializedForProductRef.current = product._id && typeof product._id === 'string' ? 1 : 1;
     }
-  },[open, product]);
-  const [fornecedores, setFornecedores] = useState<any[]>([]);
-  const [marcas, setMarcas] = useState<any[]>([]);
-  const [tags, setTags] = useState<any[]>([]);
-  const [selectedFornecedor, setSelectedFornecedor] = useState<any | null>(null);
-  const [selectedMarca, setSelectedMarca] = useState<any | null>(null);
-  const [selectedTags, setSelectedTags] = useState<any[]>([]);
+  // only when product identity changes
+  },[product]);
+
+  // reset when resetKey increments (used for creating a fresh new product)
+  const prevResetKey = useRef<number | undefined>(undefined);
+  useEffect(()=>{
+    if(typeof resetKey !== 'undefined' && resetKey !== prevResetKey.current){
+      // clear form when resetKey changes
+      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]);
+      prevResetKey.current = resetKey;
+    }
+  },[resetKey]);
+
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedFornecedor, setSelectedFornecedor] = useState<Fornecedor | null>(null);
+  const [selectedMarca, setSelectedMarca] = useState<Marca | null>(null);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [openCreateFornecedor, setOpenCreateFornecedor] = useState(false);
   const [openCreateMarca, setOpenCreateMarca] = useState(false);
 
@@ -46,11 +70,16 @@ export default function ProductForm({ open, onClose, product, onSaved }: Props){
 
   async function handleSave(){
     if(!descricao || descricao.trim().length === 0){ notify.notify({ message: 'Descrição é obrigatória', severity: 'warning' }); return; }
-    const produto: any = { descricao, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags };
+    const produto: any = { codigo_interno: codigoInterno, descricao, tamanho, preco_custo: precoCusto, preco_venda: precoVenda, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags };
     try{
       if(product && product._id){
         // keep id if present — normalize to string if it is { $oid }
-        const idVal = product._id?.$oid ?? product._id;
+        let idVal: string | undefined;
+        if (typeof product._id === 'string') {
+          idVal = product._id;
+        } else if (product._id && typeof product._id === 'object') {
+          idVal = (product._id as any).$oid ?? undefined;
+        }
         if(idVal) produto._id = idVal;
         await invoke('update_produto', { produto });
         notify.notify({ message: 'Produto atualizado', severity: 'success' });
@@ -67,8 +96,14 @@ export default function ProductForm({ open, onClose, product, onSaved }: Props){
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Novo produto</DialogTitle>
       <DialogContent>
+        <TextField label="Código interno" fullWidth value={codigoInterno} onChange={(e)=>setCodigoInterno(e.currentTarget.value)} sx={{ mb: 2 }} />
         <TextField label="Descrição" fullWidth value={descricao} onChange={(e)=>setDescricao(e.currentTarget.value)} sx={{ mb: 2 }} />
         <MicrophoneInput value={descricao} onChange={(v)=>setDescricao(v)} />
+        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <TextField label="Tamanho" value={tamanho} onChange={(e)=>setTamanho(e.currentTarget.value)} sx={{ flex: 1 }} />
+          <TextField label="Preço custo" value={precoCusto ?? ''} onChange={(e)=>setPrecoCusto(e.currentTarget.value ? Number(e.currentTarget.value) : undefined)} sx={{ width: 140 }} />
+          <TextField label="Preço venda" value={precoVenda ?? ''} onChange={(e)=>setPrecoVenda(e.currentTarget.value ? Number(e.currentTarget.value) : undefined)} sx={{ width: 140 }} />
+        </Box>
 
         <Autocomplete
           options={fornecedores}
@@ -121,12 +156,35 @@ export default function ProductForm({ open, onClose, product, onSaved }: Props){
 
         <Autocomplete
           multiple
+          freeSolo
           options={tags}
-          getOptionLabel={(o:any)=> o.nome}
+          getOptionLabel={(o:any)=> typeof o === 'string' ? o : o.nome}
           value={selectedTags}
-          onChange={(_, v)=> setSelectedTags(v)}
+          onChange={async (_, v) => {
+            // v may contain strings (new tags) or Tag objects
+            const newTags: any[] = [];
+            for(const item of v){
+              if(typeof item === 'string'){
+                // create tag on the fly
+                try{
+                  const res: any = await invoke('create_tag', { tag: { nome: item } });
+                  const created = res;
+                  // update tag options
+                  setTags(prev => [...(prev||[]), created]);
+                  newTags.push(created);
+                }catch(e){
+                  console.error('failed create tag', e);
+                  // ignore or fallback to string placeholder
+                  newTags.push({ nome: item });
+                }
+              } else {
+                newTags.push(item);
+              }
+            }
+            setSelectedTags(newTags);
+          }}
           renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
+            value.map((option: any, index: number) => (
               <Chip variant="outlined" label={option.nome} {...getTagProps({ index })} />
             ))
           }

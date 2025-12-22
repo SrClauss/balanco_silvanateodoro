@@ -16,7 +16,8 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
+    // Bind to all interfaces by default so mobile devices on the LAN can access the dev server.
+    host: host || "0.0.0.0",
     hmr: host
       ? {
           protocol: "ws",
