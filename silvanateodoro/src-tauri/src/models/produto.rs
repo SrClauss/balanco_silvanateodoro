@@ -15,7 +15,8 @@ pub struct Produto {
     pub marca: String,
     pub preco_custo: f64,
     pub preco_venda: f64,
-    pub fotos: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fotos: Option<Vec<String>>,
     pub item_produto: Vec<ItemProduto>,
     pub update_automatico: bool,
     pub tags: Vec<Tag>,

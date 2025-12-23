@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import { useNotify } from '../lib/Notifications';
 import ProductForm from '../components/ProductForm';
 
@@ -22,9 +24,9 @@ export default function ProductsPage() {
     { field: 'fornecedor_nome', headerName: 'Fornecedor', width: 180 },
     { field: 'tags', headerName: 'Tags', width: 200, valueGetter: (params:any) => ((params.row.tags || []) as any[]).map((t:any)=>t.nome).join(', ') },
     { field: 'actions', headerName: 'Ações', width: 160, sortable: false, filterable: false, renderCell: (params) => (
-        <div style={{ display: 'flex', gap: 8 }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button size="small" onClick={() => { setEditProduct(params.row); setOpenForm(true); }}>Editar</Button>
-        </div>
+        </Box>
     ) }
   ];
 
@@ -51,7 +53,7 @@ export default function ProductsPage() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <h2>Produtos</h2>
+        <Typography variant="h5" component="h2">Produtos</Typography>
         <Button variant="contained" onClick={() => { setEditProduct(null); setProductFormResetKey(k => k + 1); setOpenForm(true); }}>Novo produto</Button>
       </Box>
 
@@ -59,21 +61,21 @@ export default function ProductsPage() {
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2 }}>
           {rows.map(r => (
             <Box key={r.id} sx={{ border: '1px solid #ddd', p: 2, borderRadius: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{r.descricao}</div>
-                  <div style={{ color: '#666' }}>{r.marca_nome} — {r.fornecedor_nome}</div>
-                  <div style={{ marginTop: 8, color: '#333' }}>{(r.tags || []).map((t:any)=>t.nome).join(', ')}</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography sx={{ fontWeight: 600 }}>{r.descricao}</Typography>
+                  <Typography color="text.secondary">{r.marca_nome} — {r.fornecedor_nome}</Typography>
+                  <Typography sx={{ mt: 1 }}>{(r.tags || []).map((t:any)=>t.nome).join(', ')}</Typography>
+                </Box>
+                <Stack direction="column" spacing={1}>
                   <Button size="small" onClick={() => { setEditProduct(r); setOpenForm(true); }}>Editar</Button>
-                </div>
-              </div>
+                </Stack>
+              </Box>
             </Box>
           ))}
         </Box>
       ) : (
-        <div style={{ height: 600, width: '100%' }}>
+        <Box sx={{ height: 600, width: '100%' }}>
           <DataGrid
             rows={rows}
             columns={columns}
@@ -103,7 +105,7 @@ export default function ProductsPage() {
             }}
             onProcessRowUpdateError={(err:any) => { console.error('row update error', err); }}
           />
-        </div>
+        </Box>
       )}
 
       <ProductForm open={openForm} resetKey={productFormResetKey} onClose={() => { setOpenForm(false); setEditProduct(null); fetchData(page, pageSize); }} onSaved={() => { notify.notify({ message: 'Produto salvo', severity: 'success' }); }} />

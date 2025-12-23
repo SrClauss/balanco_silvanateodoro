@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { AppBar, Toolbar, IconButton, Typography, Drawer, List, ListItem, ListItemText, ListItemButton, useMediaQuery, Box, Divider, Tabs, Tab, BottomNavigation, BottomNavigationAction } from '@mui/material';
+import { useEffect, useMemo } from 'react';
+import { AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemText, ListItemButton, useMediaQuery, Box, Divider, Tabs, Tab, BottomNavigation, BottomNavigationAction } from '@mui/material';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LabelIcon from '@mui/icons-material/Label';
 import BusinessIcon from '@mui/icons-material/Business';
 import CategoryIcon from '@mui/icons-material/Category';
-import MenuIcon from '@mui/icons-material/Menu';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import ProductsPage from '../pages/ProductsPage';
@@ -20,7 +19,6 @@ const routes = [
 ];
 
 export default function Layout(){
-  const [open, setOpen] = useState(false);
   const mobile = useMediaQuery('(max-width:600px)');
   const desktop = useMediaQuery('(min-width:900px)');
   const navigate = useNavigate();
@@ -49,7 +47,7 @@ export default function Layout(){
   }, [navigate]);
 
   const drawer = (
-    <Box sx={{ width: drawerWidth }} role="presentation" onClick={() => setOpen(false)}>
+    <Box sx={{ width: drawerWidth }} role="presentation">
       <List>
         {routes.map(r => (
           <ListItem key={r.path} component={Link} to={r.path} disablePadding>
@@ -82,39 +80,26 @@ export default function Layout(){
         }}
       >
         <Toolbar sx={{ minHeight: { xs: '56px', sm: '64px' }, alignItems: 'center' }}>
-          {!desktop && mobile && (
-            <IconButton color="inherit" edge="start" onClick={() => setOpen(true)} sx={{ mr: 2, mt: 0 }}>
-              <MenuIcon />
-            </IconButton>
-          )}
+
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>Silvana Teodoro</Typography>
 
           {/* Tabs for desktop */}
           <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
             <Tabs value={activePath} onChange={(_, val) => navigate(val)} textColor="primary" indicatorColor="primary">
               {routes.map(r => (
-                <Tab key={r.path} label={r.label} value={r.path} icon={r.icon} iconPosition="start" />
+                <Tab key={r.path} label={r.label} value={r.path} icon={r.icon} iconPosition="top" />
               ))}
             </Tabs>
           </Box>
         </Toolbar>
       </AppBar>
 
-      {/* Drawer: permanent on desktop, temporary on mobile */}
-      {desktop ? (
+      {/* Drawer: permanent on desktop only */}
+      {desktop && (
         <Drawer
           variant="permanent"
           open
           sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box', pt: { xs: 'env(safe-area-inset-top)', sm: 0 } } }}
-        >
-          {drawer}
-        </Drawer>
-      ) : (
-        <Drawer
-          open={open}
-          onClose={() => setOpen(false)}
-          ModalProps={{ keepMounted: true }}
-          PaperProps={{ sx: { pt: { xs: 'env(safe-area-inset-top)', sm: 0 } } }}
         >
           {drawer}
         </Drawer>
@@ -123,18 +108,18 @@ export default function Layout(){
       <Box component="main" sx={{ p: 2, flex: 1 }}>
         {/* Routed pages render here */}
         {mobile ? (
-          <div {...useSwipeable({
+          <Box {...useSwipeable({
             onSwipedLeft: () => { const i = routes.findIndex(r => r.path === activePath); if(i < routes.length - 1) navigate(routes[i+1].path); },
             onSwipedRight: () => { const i = routes.findIndex(r => r.path === activePath); if(i > 0) navigate(routes[i-1].path); },
             trackMouse: true
-          })} style={{ overflow: 'hidden' }}>
-            <div style={{ display: 'flex', width: `${routes.length * 100}%`, transform: `translateX(-${(routes.findIndex(r => r.path === activePath) || 0) * (100 / routes.length)}%)`, transition: 'transform 300ms ease' }}>
-              <div style={{ width: `${100 / routes.length}%`, paddingRight: 8 }}><ProductsPage /></div>
-              <div style={{ width: `${100 / routes.length}%`, paddingRight: 8 }}><TagsPage /></div>
-              <div style={{ width: `${100 / routes.length}%`, paddingRight: 8 }}><BrandsPage /></div>
-              <div style={{ width: `${100 / routes.length}%`, paddingRight: 8 }}><SuppliersPage /></div>
-            </div>
-          </div>
+          })} sx={{ overflow: 'hidden' }}>
+            <Box sx={{ display: 'flex', width: `${routes.length * 100}%`, transform: `translateX(-${(routes.findIndex(r => r.path === activePath) || 0) * (100 / routes.length)}%)`, transition: 'transform 300ms ease' }}>
+              <Box sx={{ width: `${100 / routes.length}%`, pr: 1 }}><ProductsPage /></Box>
+              <Box sx={{ width: `${100 / routes.length}%`, pr: 1 }}><TagsPage /></Box>
+              <Box sx={{ width: `${100 / routes.length}%`, pr: 1 }}><BrandsPage /></Box>
+              <Box sx={{ width: `${100 / routes.length}%`, pr: 1 }}><SuppliersPage /></Box>
+            </Box>
+          </Box>
         ) : (
           <Outlet />
         )}
@@ -152,7 +137,7 @@ export default function Layout(){
       )}
 
       <Box component="footer" sx={{ p: 1, textAlign: 'center', bgcolor: '#fafafa' }}>
-        <small style={{ color: '#666' }}>© {new Date().getFullYear()} Silvana Teodoro</small>
+        <Typography variant="caption" color="text.secondary">© {new Date().getFullYear()} Silvana Teodoro</Typography>
       </Box>
     </Box>
   );

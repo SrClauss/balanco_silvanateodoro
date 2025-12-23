@@ -3,6 +3,9 @@ import IconButton from '@mui/material/IconButton';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import { useStt } from "../lib/useStt";
+import Stack from '@mui/material/Stack';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 
 type Props = {
   value: string;
@@ -53,14 +56,14 @@ export default function MicrophoneInput({ value, onChange, language = "pt-BR" }:
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ flex: 1 }}>{/* placeholder for alignment; actual input should be in parent */}</span>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <small style={{ marginRight: 8, color: '#555' }}>{listening ? 'Ouvindo...' : 'Ditar'}</small>
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
+      <Box sx={{ flex: 1 }} />
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <Typography variant="caption" sx={{ mr: 1, color: 'text.secondary' }}>{listening ? 'Ouvindo...' : 'Ditar'}</Typography>
         <IconButton onClick={handleToggle} color={listening ? 'primary' : 'default'} size="large">
           {listening ? <MicOffIcon /> : <MicIcon />}
         </IconButton>
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }

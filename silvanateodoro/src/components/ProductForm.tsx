@@ -16,6 +16,10 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
   const [precoCusto, setPrecoCusto] = useState<number | undefined>(undefined);
   const [precoVenda, setPrecoVenda] = useState<number | undefined>(undefined);
 
+  // string mirrors for inputs: keep user typing as-is, convert to number only when valid
+  const [precoCustoStr, setPrecoCustoStr] = useState<string>('');
+  const [precoVendaStr, setPrecoVendaStr] = useState<string>('');
+
   // preserve state across modal close by default. Parent can reset by bumping `resetKey`.
   const initializedForProductRef = useRef<number | null>(null);
   useEffect(()=>{
@@ -26,6 +30,8 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
       setTamanho(product.tamanho || '');
       setPrecoCusto(product.preco_custo ?? undefined);
       setPrecoVenda(product.preco_venda ?? undefined);
+      setPrecoCustoStr(product.preco_custo != null ? String(product.preco_custo) : '');
+      setPrecoVendaStr(product.preco_venda != null ? String(product.preco_venda) : '');
       setSelectedFornecedor(product.fornecedor || null);
       setSelectedMarca((product.marca && typeof product.marca === 'string') ? { nome: product.marca } : (product.marca as any) || null);
       setSelectedTags(product.tags || []);
@@ -39,7 +45,7 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
   useEffect(()=>{
     if(typeof resetKey !== 'undefined' && resetKey !== prevResetKey.current){
       // clear form when resetKey changes
-      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]);
+      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setPrecoCustoStr(''); setPrecoVendaStr(''); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]);
       prevResetKey.current = resetKey;
     }
   },[resetKey]);
@@ -101,8 +107,46 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
         <MicrophoneInput value={descricao} onChange={(v)=>setDescricao(v)} />
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
           <TextField label="Tamanho" value={tamanho} onChange={(e)=>setTamanho(e.currentTarget.value)} sx={{ flex: 1 }} />
-          <TextField label="Preço custo" value={precoCusto ?? ''} onChange={(e)=>setPrecoCusto(e.currentTarget.value ? Number(e.currentTarget.value) : undefined)} sx={{ width: 140 }} />
-          <TextField label="Preço venda" value={precoVenda ?? ''} onChange={(e)=>setPrecoVenda(e.currentTarget.value ? Number(e.currentTarget.value) : undefined)} sx={{ width: 140 }} />
+          <TextField
+            label="Preço custo"
+            type="number"
+            value={precoCustoStr}
+            onChange={(e)=>{
+              const v = e.currentTarget.value;
+              setPrecoCustoStr(v);
+              // only update numeric value when parsed number is finite
+              const n = v.trim() === '' ? undefined : Number(v);
+              setPrecoCusto(Number.isFinite(n as number) ? (n as number) : undefined);
+            }}
+            onBlur={()=>{
+              if(precoCustoStr.trim() === ''){ setPrecoCusto(undefined); return; }
+              const n = Number(precoCustoStr);
+              if(!Number.isFinite(n)){ setPrecoCusto(undefined); /* optional: reset string to '' or previous valid value */ }
+              else setPrecoCusto(n);
+            }}
+            sx={{ width: 140 }}
+            inputProps={{ step: '0.01' }}
+          />
+
+          <TextField
+            label="Preço venda"
+            type="number"
+            value={precoVendaStr}
+            onChange={(e)=>{
+              const v = e.currentTarget.value;
+              setPrecoVendaStr(v);
+              const n = v.trim() === '' ? undefined : Number(v);
+              setPrecoVenda(Number.isFinite(n as number) ? (n as number) : undefined);
+            }}
+            onBlur={()=>{
+              if(precoVendaStr.trim() === ''){ setPrecoVenda(undefined); return; }
+              const n = Number(precoVendaStr);
+              if(!Number.isFinite(n)){ setPrecoVenda(undefined); }
+              else setPrecoVenda(n);
+            }}
+            sx={{ width: 140 }}
+            inputProps={{ step: '0.01' }}
+          />
         </Box>
 
         <Autocomplete
