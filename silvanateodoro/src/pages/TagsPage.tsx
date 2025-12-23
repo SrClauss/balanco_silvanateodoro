@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { List, ListItem, ListItemText, Button, Box } from '@mui/material';
+import { List, ListItem, ListItemText, Box, IconButton, Button } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import CreateEntityDialog from '../components/CreateEntityDialog';
 import EditEntityDialog from '../components/EditEntityDialog';
 import { useConfirm } from '../lib/Confirm';
@@ -39,8 +41,12 @@ export default function TagsPage(){
         {items.map(t => (
           <ListItem key={t._id?.$oid ?? t._id} divider secondaryAction={
             <>
-              <Button size="small" onClick={() => { setEditItem(t); setShowEdit(true); }} sx={{ mr: 1 }}>Editar</Button>
-              <Button size="small" color="error" onClick={() => handleDelete(t._id?.$oid ?? t._id)}>Excluir</Button>
+              <IconButton size="small" color="success" onClick={() => { setEditItem(t); setShowEdit(true); }} title="Editar">
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" color="error" onClick={() => handleDelete(t._id?.$oid ?? t._id)} title="Excluir">
+                <DeleteIcon fontSize="small" />
+              </IconButton>
             </>
           }>
             <ListItemText primary={t.nome} secondary={t.descricao} />
