@@ -24,6 +24,12 @@ export interface Marca {
   updated_at?: string;
 }
 
+export interface ItemProduto {
+  id?: { $oid?: string } | string;
+  data_aquisicao: string;
+  quantidade: number;
+}
+
 export interface Produto {
   _id?: { $oid?: string } | string;
   codigo_interno?: string;
@@ -34,5 +40,6 @@ export interface Produto {
   preco_custo?: number;
   preco_venda?: number;
   fotos?: string[];
+  item_produto?: ItemProduto[];
   tags?: Tag[];
 }

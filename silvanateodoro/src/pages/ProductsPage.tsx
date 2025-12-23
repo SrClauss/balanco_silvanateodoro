@@ -23,6 +23,7 @@ export default function ProductsPage() {
     { field: 'marca_nome', headerName: 'Marca', width: 150 },
     { field: 'fornecedor_nome', headerName: 'Fornecedor', width: 180 },
     { field: 'tags', headerName: 'Tags', width: 200, valueGetter: (params:any) => ((params.row.tags || []) as any[]).map((t:any)=>t.nome).join(', ') },
+    { field: 'estoque', headerName: 'Estoque', width: 120, valueGetter: (params:any) => ((params.row.item_produto || []) as any[]).reduce((acc:any, it:any) => acc + (it?.quantidade || 0), 0) },
     { field: 'actions', headerName: 'Ações', width: 160, sortable: false, filterable: false, renderCell: (params) => (
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button size="small" onClick={() => { setEditProduct(params.row); setOpenForm(true); }}>Editar</Button>
@@ -66,6 +67,7 @@ export default function ProductsPage() {
                   <Typography sx={{ fontWeight: 600 }}>{r.descricao}</Typography>
                   <Typography color="text.secondary">{r.marca_nome} — {r.fornecedor_nome}</Typography>
                   <Typography sx={{ mt: 1 }}>{(r.tags || []).map((t:any)=>t.nome).join(', ')}</Typography>
+                  <Typography sx={{ mt: 1, fontWeight: 600 }}>Estoque: {(r.item_produto || []).reduce((acc:any, it:any) => acc + (it?.quantidade || 0), 0)}</Typography>
                 </Box>
                 <Stack direction="column" spacing={1}>
                   <Button size="small" onClick={() => { setEditProduct(r); setOpenForm(true); }}>Editar</Button>

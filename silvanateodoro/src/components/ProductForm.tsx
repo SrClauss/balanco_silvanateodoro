@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip, Box } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip, Box, Typography } from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 import MicrophoneInput from './MicrophoneInput';
 import CreateEntityDialog from './CreateEntityDialog';
@@ -45,7 +45,7 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
   useEffect(()=>{
     if(typeof resetKey !== 'undefined' && resetKey !== prevResetKey.current){
       // clear form when resetKey changes
-      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setPrecoCustoStr(''); setPrecoVendaStr(''); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]);
+      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setPrecoCustoStr(''); setPrecoVendaStr(''); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]); setItems([]);
       prevResetKey.current = resetKey;
     }
   },[resetKey]);
@@ -58,6 +58,9 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [openCreateFornecedor, setOpenCreateFornecedor] = useState(false);
   const [openCreateMarca, setOpenCreateMarca] = useState(false);
+
+  // stock items (item_produto)
+  const [items, setItems] = useState<Array<{ id?: string | { $oid?: string }, data_aquisicao: string, quantidade: number }>>([]);
 
   async function loadOptions(){
     try{
@@ -72,11 +75,18 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
 
   useEffect(()=>{ if(open) loadOptions(); },[open]);
 
+  // initialize items when product is present
+  useEffect(()=>{
+    if(product){
+      setItems((product.item_produto || []).map((it:any) => ({ id: (it as any)?._id ?? (it as any).id, data_aquisicao: it.data_aquisicao || '', quantidade: (it.quantidade ?? 0) })))
+    }
+  },[product]);
+
   const notify = useNotify();
 
   async function handleSave(){
     if(!descricao || descricao.trim().length === 0){ notify.notify({ message: 'Descrição é obrigatória', severity: 'warning' }); return; }
-    const produto: any = { codigo_interno: codigoInterno, descricao, tamanho, preco_custo: precoCusto, preco_venda: precoVenda, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags };
+    const produto: any = { codigo_interno: codigoInterno, descricao, tamanho, preco_custo: precoCusto, preco_venda: precoVenda, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags, item_produto: (items || []).map(it => ({ data_aquisicao: it.data_aquisicao, quantidade: it.quantidade })) };
     try{
       if(product && product._id){
         // keep id if present — normalize to string if it is { $oid }
@@ -234,6 +244,27 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
           }
           renderInput={(params) => <TextField {...params} label="Tags" sx={{ mt: 2 }} />}
         />
+
+        {/* Stock items */}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle1">Itens de estoque</Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>Se nenhum item for adicionado, o sistema assume 1 unidade em estoque automaticamente.</Typography>
+          {items.map((it, idx) => (
+            <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+              <TextField label="Data aquisição" type="date" value={it.data_aquisicao} onChange={(e)=>{
+                const v = e.currentTarget.value;
+                setItems(prev => prev.map((p, i) => i === idx ? { ...p, data_aquisicao: v } : p));
+              }} sx={{ width: 160 }} InputLabelProps={{ shrink: true }} />
+              <TextField label="Quantidade" type="number" value={String(it.quantidade)} onChange={(e)=>{
+                const v = e.currentTarget.value;
+                const n = v === '' ? 0 : Number(v);
+                setItems(prev => prev.map((p, i) => i === idx ? { ...p, quantidade: Number.isFinite(n) ? n : 0 } : p));
+              }} sx={{ width: 120 }} />
+              <Button onClick={()=> setItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+            </Box>
+          ))}
+          <Button variant="outlined" onClick={()=> setItems(prev => [...prev, { data_aquisicao: new Date().toISOString().slice(0,10), quantidade: 1 }])}>Adicionar item</Button>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>

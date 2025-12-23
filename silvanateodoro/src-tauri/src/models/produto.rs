@@ -17,6 +17,7 @@ pub struct Produto {
     pub preco_venda: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fotos: Option<Vec<String>>,
+    #[serde(default)]
     pub item_produto: Vec<ItemProduto>,
     pub update_automatico: bool,
     pub tags: Vec<Tag>,
@@ -44,9 +45,16 @@ impl crate::models::updatable::Updatable for Produto {
 #[tauri::command]
 pub async fn create_produto(
     conn: tauri::State<'_, std::sync::Arc<crate::connect::Conn>>,
-    produto: Produto,
+    mut produto: Produto,
 ) -> Result<serde_json::Value, String> {
     let conn_ref = conn.as_ref();
+
+    // If no stock items provided, create a single default item with quantidade=1
+    if produto.item_produto.is_empty() {
+        let now = chrono::Utc::now().to_rfc3339();
+        produto.item_produto.push(ItemProduto { id: None, data_aquisicao: now, quantidade: 1 });
+    }
+
     crate::models::updatable::Updatable::create(&produto, conn_ref)
         .await
         .map_err(|e| e.to_string())?;
@@ -56,9 +64,16 @@ pub async fn create_produto(
 #[tauri::command]
 pub async fn update_produto(
     conn: tauri::State<'_, std::sync::Arc<crate::connect::Conn>>,
-    produto: Produto,
+    mut produto: Produto,
 ) -> Result<String, String> {
     let conn_ref = conn.as_ref();
+
+    // If no stock items provided, create a single default item with quantidade=1
+    if produto.item_produto.is_empty() {
+        let now = chrono::Utc::now().to_rfc3339();
+        produto.item_produto.push(ItemProduto { id: None, data_aquisicao: now, quantidade: 1 });
+    }
+
     crate::models::updatable::Updatable::update(&produto, conn_ref)
         .await
         .map_err(|e| e.to_string())
