@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip, Box, Typography } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip, Box, Typography, Switch, FormControlLabel } from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 import MicrophoneInput from './MicrophoneInput';
 import CreateEntityDialog from './CreateEntityDialog';
@@ -35,6 +35,7 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
       setSelectedFornecedor(product.fornecedor || null);
       setSelectedMarca((product.marca && typeof product.marca === 'string') ? { nome: product.marca } : (product.marca as any) || null);
       setSelectedTags(product.tags || []);
+      setUpdateAutomatico(product.update_automatico ?? true);
       initializedForProductRef.current = product._id && typeof product._id === 'string' ? 1 : 1;
     }
   // only when product identity changes
@@ -45,7 +46,7 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
   useEffect(()=>{
     if(typeof resetKey !== 'undefined' && resetKey !== prevResetKey.current){
       // clear form when resetKey changes
-      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setPrecoCustoStr(''); setPrecoVendaStr(''); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]); setItems([]);
+      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setPrecoCustoStr(''); setPrecoVendaStr(''); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]); setItems([]); setUpdateAutomatico(true);
       prevResetKey.current = resetKey;
     }
   },[resetKey]);
@@ -58,6 +59,9 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [openCreateFornecedor, setOpenCreateFornecedor] = useState(false);
   const [openCreateMarca, setOpenCreateMarca] = useState(false);
+
+  // update automatico flag (default true)
+  const [updateAutomatico, setUpdateAutomatico] = useState<boolean>(true);
 
   // stock items (item_produto)
   const [items, setItems] = useState<Array<{ id?: string | { $oid?: string }, data_aquisicao: string, quantidade: number }>>([]);
@@ -86,7 +90,7 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
 
   async function handleSave(){
     if(!descricao || descricao.trim().length === 0){ notify.notify({ message: 'Descrição é obrigatória', severity: 'warning' }); return; }
-    const produto: any = { codigo_interno: codigoInterno, descricao, tamanho, preco_custo: precoCusto, preco_venda: precoVenda, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags, item_produto: (items || []).map(it => ({ data_aquisicao: it.data_aquisicao, quantidade: it.quantidade })) };
+    const produto: any = { codigo_interno: codigoInterno, descricao, tamanho, preco_custo: precoCusto, preco_venda: precoVenda, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags, item_produto: (items || []).map(it => ({ data_aquisicao: it.data_aquisicao, quantidade: it.quantidade })), update_automatico: updateAutomatico };
     try{
       if(product && product._id){
         // keep id if present — normalize to string if it is { $oid }
@@ -245,8 +249,8 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
           renderInput={(params) => <TextField {...params} label="Tags" sx={{ mt: 2 }} />}
         />
 
-        {/* Stock items */}
         <Box sx={{ mt: 2 }}>
+          <FormControlLabel control={<Switch checked={updateAutomatico} onChange={(_, v) => setUpdateAutomatico(v)} />} label="Update automático" sx={{ mb: 1 }} />
           <Typography variant="subtitle1">Itens de estoque</Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>Se nenhum item for adicionado, o sistema assume 1 unidade em estoque automaticamente.</Typography>
           {items.map((it, idx) => (

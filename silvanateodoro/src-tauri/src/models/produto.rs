@@ -4,6 +4,9 @@ use crate::models::updatable::Updatable as _;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
+// default helpers for serde
+fn default_update_automatico() -> bool { true }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Produto {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
@@ -19,6 +22,7 @@ pub struct Produto {
     pub fotos: Option<Vec<String>>,
     #[serde(default)]
     pub item_produto: Vec<ItemProduto>,
+    #[serde(default = "default_update_automatico")]
     pub update_automatico: bool,
     pub tags: Vec<Tag>,
 }

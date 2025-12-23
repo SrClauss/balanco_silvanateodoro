@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Tag {
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub _id: Option<ObjectId>,
     pub nome: String,
 }
 
@@ -19,7 +20,7 @@ impl Updatable for Tag {
     }
 
     fn id_opt(&self) -> Option<ObjectId> {
-        self.id
+        self._id
     }
 
     async fn update_all_products(&self, conn: &Conn) -> Result<String, mongodb::error::Error> {
@@ -28,10 +29,8 @@ impl Updatable for Tag {
             return Ok("No id, skipping tag product update".into());
         }
         let id = self.id.unwrap();
-        let tag_doc = match bson::to_bson(self).map_err(mongodb::error::Error::custom)? {
-            Bson::Document(d) => d,
-            _ => return Ok("invalid tag serialization".into()),
-        };
+        // build a lightweight tag doc that contains only the name and keeps _id to maintain linkage
+        let tag_doc = doc! { "_id": &id, "nome": &self.nome };
 
         let filter = doc! { "tags._id": &id };
         let pipeline = vec![doc! {

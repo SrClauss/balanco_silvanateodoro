@@ -41,5 +41,6 @@ export interface Produto {
   preco_venda?: number;
   fotos?: string[];
   item_produto?: ItemProduto[];
+  update_automatico?: boolean;
   tags?: Tag[];
 }

@@ -5,6 +5,11 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useConfirm } from '../lib/Confirm';
 import { useNotify } from '../lib/Notifications';
 import ProductForm from '../components/ProductForm';
 
@@ -22,20 +27,58 @@ export default function ProductsPage() {
     { field: 'descricao', headerName: 'Descrição', flex: 1, editable: false },
     { field: 'marca_nome', headerName: 'Marca', width: 150 },
     { field: 'fornecedor_nome', headerName: 'Fornecedor', width: 180 },
-    { field: 'tags', headerName: 'Tags', width: 200, valueGetter: (params:any) => ((params.row.tags || []) as any[]).map((t:any)=>t.nome).join(', ') },
-    { field: 'estoque', headerName: 'Estoque', width: 120, valueGetter: (params:any) => ((params.row.item_produto || []) as any[]).reduce((acc:any, it:any) => acc + (it?.quantidade || 0), 0) },
-    { field: 'actions', headerName: 'Ações', width: 160, sortable: false, filterable: false, renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button size="small" onClick={() => { setEditProduct(params.row); setOpenForm(true); }}>Editar</Button>
-        </Box>
-    ) }
+    { field: 'tags', headerName: 'Tags', width: 220, renderCell: (params:any) => {
+        const row = params?.row ?? {};
+        const tags = (row.tags ?? []) as any[];
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {tags.map((t:any, i:number) => {
+              const label = !t ? '' : (typeof t === 'string' ? t : (t.nome ?? t.name ?? t.label ?? ''));
+              return label ? <Chip key={i} label={label} size="small" /> : null;
+            })}
+          </Box>
+        );
+      } },
+    { field: 'estoque', headerName: 'Estoque', width: 120, valueGetter: (params:any) => {
+        const row = params?.row ?? {};
+        const items = (row.item_produto ?? []) as any[];
+        return items.reduce((acc:any, it:any) => acc + (it?.quantidade || 0), 0);
+      } },
+    { field: 'actions', headerName: 'Ações', width: 140, sortable: false, filterable: false, renderCell: (params) => {
+        const row = params?.row ?? {};
+        const idVal = row._id?.$oid ?? row._id ?? row.id;
+        return (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton size="small" onClick={() => { setEditProduct(row); setOpenForm(true); }} title="Editar"><EditIcon fontSize="small" /></IconButton>
+            <IconButton size="small" onClick={async () => {
+              const ok = await confirm.confirm({ title: 'Confirmar deleção', description: 'Deseja excluir este produto?', confirmText: 'Excluir' });
+              if(!ok) return;
+              try{
+                await invoke('delete_produto', { id: String(idVal) });
+                notify.notify({ message: 'Produto excluído', severity: 'success' });
+                fetchData(page, pageSize);
+              }catch(e){ console.error('delete produto', e); notify.notify({ message: 'Erro ao excluir', severity: 'error' }); }
+            }} title="Excluir"><DeleteIcon fontSize="small" /></IconButton>
+          </Box>
+        );
+      } }
   ];
 
   async function fetchData(p: number, perPage: number) {
     setLoading(true);
     try {
       const res: any = await invoke('list_produtos', { page: p + 1, per_page: perPage });
-      setRows((res.items || []).map((it: any) => ({ id: it._id?.$oid ?? it._id, __raw: it, ...it, marca_nome: it.marca?.nome, fornecedor_nome: it.fornecedor?.nome })));
+      // debug: log tags of first item (temporary)
+      if(Array.isArray(res.items) && res.items.length > 0){
+        console.debug('debug:first-produto-tags', res.items[0].tags);
+      }
+      setRows((res.items || []).map((it: any) => {
+        // marca can be either a string or an object
+        const marca_nome = typeof it.marca === 'string' ? it.marca : (it.marca?.nome ?? '');
+        // fornecedor can be object with nome_fantasia or nome, or a string id
+        const fornecedor_nome = (it.fornecedor && (it.fornecedor.nome_fantasia || it.fornecedor.nome)) ? (it.fornecedor.nome_fantasia || it.fornecedor.nome) : (typeof it.fornecedor === 'string' ? it.fornecedor : '');
+        return { id: it._id?.$oid ?? it._id, __raw: it, ...it, marca_nome, fornecedor_nome };
+      }));
       setTotal(res.total || 0);
     } catch (e) {
       console.error('fetch produtos', e);
@@ -45,6 +88,7 @@ export default function ProductsPage() {
   }
 
   const notify = useNotify();
+  const confirm = useConfirm();
   useEffect(() => {
     fetchData(page, pageSize);
   }, [page, pageSize]);
@@ -66,7 +110,10 @@ export default function ProductsPage() {
                 <Box>
                   <Typography sx={{ fontWeight: 600 }}>{r.descricao}</Typography>
                   <Typography color="text.secondary">{r.marca_nome} — {r.fornecedor_nome}</Typography>
-                  <Typography sx={{ mt: 1 }}>{(r.tags || []).map((t:any)=>t.nome).join(', ')}</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>{(r.tags || []).map((t:any, i:number) => {
+                    const label = !t ? '' : (typeof t === 'string' ? t : (t.nome ?? t.name ?? t.label ?? ''));
+                    return label ? <Chip key={i} label={label} size="small" /> : null;
+                  })}</Box>
                   <Typography sx={{ mt: 1, fontWeight: 600 }}>Estoque: {(r.item_produto || []).reduce((acc:any, it:any) => acc + (it?.quantidade || 0), 0)}</Typography>
                 </Box>
                 <Stack direction="column" spacing={1}>
