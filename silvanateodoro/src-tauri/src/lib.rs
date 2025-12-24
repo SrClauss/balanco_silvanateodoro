@@ -17,7 +17,7 @@ use crate::models::marca::{
 use crate::models::produto::{
     create_produto, delete_produto, filter_produtos, get_produto_by_id,
     list_produtos_by_description, list_produtos_by_fornecedor, list_produtos_by_marca,
-    list_produtos_by_tags, update_produto,
+    list_produtos_by_tags, update_produto, next_codigo_interno,
 };
 use crate::models::tag::{create_tag, delete_tag, filter_tags, get_tag_by_id, update_tag};
 
@@ -112,6 +112,13 @@ pub fn run() {
         Ok(_) => println!("Tag index ensured"),
         Err(e) => eprintln!("Failed to ensure tag index: {}", e),
     }
+
+    // garantir índice de produtos (codigo_interno único)
+    let ensure_prod = rt.block_on(async { crate::models::produto::Produto::ensure_indexes(conn_arc.as_ref()).await });
+    match ensure_prod {
+        Ok(_) => println!("Produto index ensured"),
+        Err(e) => eprintln!("Failed to ensure produto index: {}", e),
+    }
     let state = AppState {
         conn: Arc::clone(&conn_arc),
     };
@@ -159,6 +166,7 @@ pub fn run() {
             list_produtos_by_tags,
             list_produtos_by_marca,
             list_produtos_by_fornecedor,
+            next_codigo_interno,
             // Tag
             create_tag,
             update_tag,

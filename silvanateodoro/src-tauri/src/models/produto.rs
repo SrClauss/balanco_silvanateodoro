@@ -45,18 +45,35 @@ impl crate::models::updatable::Updatable for Produto {
     }
 }
 
+impl Produto {
+    /// Ensure indexes (e.g., unique codigo_interno)
+    pub async fn ensure_indexes(conn: &crate::connect::Conn) -> Result<(), mongodb::error::Error> {
+        use mongodb::IndexModel;
+        use mongodb::options::IndexOptions;
+        use mongodb::bson::{doc, Document};
+
+        let coll = conn.db.collection::<Document>(Self::collection_name());
+        let options = IndexOptions::builder().unique(true).build();
+        let model = IndexModel::builder().keys(doc! { "codigo_interno": 1 }).options(options).build();
+        // create_index returns the name of the created index
+        coll.create_index(model).await.map(|_| ())
+    }
+}
+
 // --- Tauri commands for Produto ---
 #[tauri::command]
 pub async fn create_produto(
     conn: tauri::State<'_, std::sync::Arc<crate::connect::Conn>>,
-    mut produto: Produto,
+    produto: Produto,
 ) -> Result<serde_json::Value, String> {
     let conn_ref = conn.as_ref();
 
-    // If no stock items provided, create a single default item with quantidade=1
-    if produto.item_produto.is_empty() {
-        let now = chrono::Utc::now().to_rfc3339();
-        produto.item_produto.push(ItemProduto { id: None, data_aquisicao: now, quantidade: 1 });
+
+    // ensure codigo_interno uniqueness
+    let coll = conn_ref.db.collection::<mongodb::bson::Document>(Produto::collection_name());
+    let filter = mongodb::bson::doc! { "codigo_interno": &produto.codigo_interno };
+    if coll.find_one(filter).await.map_err(|e| e.to_string())?.is_some() {
+        return Err("codigo_interno already exists".into());
     }
 
     crate::models::updatable::Updatable::create(&produto, conn_ref)
@@ -68,14 +85,22 @@ pub async fn create_produto(
 #[tauri::command]
 pub async fn update_produto(
     conn: tauri::State<'_, std::sync::Arc<crate::connect::Conn>>,
-    mut produto: Produto,
+    produto: Produto,
 ) -> Result<String, String> {
     let conn_ref = conn.as_ref();
 
-    // If no stock items provided, create a single default item with quantidade=1
-    if produto.item_produto.is_empty() {
-        let now = chrono::Utc::now().to_rfc3339();
-        produto.item_produto.push(ItemProduto { id: None, data_aquisicao: now, quantidade: 1 });
+
+
+    // ensure codigo_interno uniqueness (ignore self)
+    let coll = conn_ref.db.collection::<mongodb::bson::Document>(Produto::collection_name());
+    let filter = mongodb::bson::doc! { "codigo_interno": &produto.codigo_interno };
+    if let Some(existing) = coll.find_one(filter).await.map_err(|e| e.to_string())? {
+        // check id mismatch
+        let existing_id = existing.get_object_id("_id").map(|o| o.to_hex()).ok();
+        let incoming_id = produto.id.map(|o| o.to_hex());
+        if existing_id != incoming_id {
+            return Err("codigo_interno already exists".into());
+        }
     }
 
     crate::models::updatable::Updatable::update(&produto, conn_ref)
@@ -209,6 +234,35 @@ pub async fn list_produtos_by_marca(
     .await
     .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({"items": items, "total": total}))
+}
+
+// return next numeric codigo_interno as string
+#[tauri::command]
+pub async fn next_codigo_interno(
+    conn: tauri::State<'_, std::sync::Arc<crate::connect::Conn>>,
+) -> Result<String, String> {
+    let conn_ref = conn.as_ref();
+    let coll = conn_ref.db.collection::<mongodb::bson::Document>(Produto::collection_name());
+    // aggregation: match numeric strings, project num, sort desc, limit 1
+    let pipeline = vec![
+        mongodb::bson::doc! { "$match": { "codigo_interno": { "$regex": "^[0-9]+$" } } },
+        mongodb::bson::doc! { "$project": { "num": { "$toInt": "$codigo_interno" } } },
+        mongodb::bson::doc! { "$sort": { "num": -1 } },
+        mongodb::bson::doc! { "$limit": 1 }
+    ];
+    let mut cursor = coll.aggregate(pipeline).await.map_err(|e| e.to_string())?;
+    use tokio_stream::StreamExt;
+    if let Some(doc_res) = cursor.next().await {
+        let doc = doc_res.map_err(|e| e.to_string())?;
+        // try i32 then i64
+        if let Ok(n) = doc.get_i32("num") {
+            return Ok((n as i64 + 1).to_string());
+        }
+        if let Ok(n) = doc.get_i64("num") {
+            return Ok((n + 1).to_string());
+        }
+    }
+    Ok("1".into())
 }
 
 #[tauri::command]

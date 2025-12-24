@@ -12,6 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useConfirm } from '../lib/Confirm';
 import { useNotify } from '../lib/Notifications';
 import ProductForm from '../components/ProductForm';
+import { ItemProduto } from '../types/entities';
 
 export default function ProductsPage() {
   const [rows, setRows] = useState<any[]>([]);
@@ -39,18 +40,17 @@ export default function ProductsPage() {
           </Box>
         );
       } },
-    { field: 'estoque', headerName: 'Estoque', width: 120, valueGetter: (params:any) => {
-        const row = params?.row ?? {};
-        const items = (row.item_produto ?? []) as any[];
-        return items.reduce((acc:any, it:any) => acc + (it?.quantidade || 0), 0);
+    { field: 'item_produto', headerName: 'Estoque', width: 120, valueGetter: (params:any) => {
+        const row = params.reduce((acc:number, value:ItemProduto) => acc + (Number(value?.quantidade) || 0), 0);
+        return JSON.stringify(row);
       } },
     { field: 'actions', headerName: 'Ações', width: 140, sortable: false, filterable: false, renderCell: (params) => {
         const row = params?.row ?? {};
         const idVal = row._id?.$oid ?? row._id ?? row.id;
         return (
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton size="small" onClick={() => { setEditProduct(row); setOpenForm(true); }} title="Editar"><EditIcon fontSize="small" /></IconButton>
-            <IconButton size="small" onClick={async () => {
+            <IconButton size="small" color="success" onClick={() => { setEditProduct(row); setOpenForm(true); }} title="Editar"><EditIcon fontSize="small" /></IconButton>
+            <IconButton size="small" color="error" onClick={async () => {
               const ok = await confirm.confirm({ title: 'Confirmar deleção', description: 'Deseja excluir este produto?', confirmText: 'Excluir' });
               if(!ok) return;
               try{
@@ -77,7 +77,9 @@ export default function ProductsPage() {
         const marca_nome = typeof it.marca === 'string' ? it.marca : (it.marca?.nome ?? '');
         // fornecedor can be object with nome_fantasia or nome, or a string id
         const fornecedor_nome = (it.fornecedor && (it.fornecedor.nome_fantasia || it.fornecedor.nome)) ? (it.fornecedor.nome_fantasia || it.fornecedor.nome) : (typeof it.fornecedor === 'string' ? it.fornecedor : '');
-        return { id: it._id?.$oid ?? it._id, __raw: it, ...it, marca_nome, fornecedor_nome };
+        // compute total estoque as number to avoid type/coercion issues
+        const estoque = (it.item_produto || []).reduce((acc:any, ip:any) => acc + (Number(ip?.quantidade) || 0), 0);
+        return { id: it._id?.$oid ?? it._id, __raw: it, ...it, marca_nome, fornecedor_nome, estoque };
       }));
       setTotal(res.total || 0);
     } catch (e) {
@@ -114,10 +116,20 @@ export default function ProductsPage() {
                     const label = !t ? '' : (typeof t === 'string' ? t : (t.nome ?? t.name ?? t.label ?? ''));
                     return label ? <Chip key={i} label={label} size="small" /> : null;
                   })}</Box>
-                  <Typography sx={{ mt: 1, fontWeight: 600 }}>Estoque: {(r.item_produto || []).reduce((acc:any, it:any) => acc + (it?.quantidade || 0), 0)}</Typography>
+                  <Typography sx={{ mt: 1, fontWeight: 600 }}>Estoque: {Number(r.estoque ?? ((r.item_produto || []).reduce((acc:any, it:any) => acc + (Number(it?.quantidade) || 0), 0)))}</Typography>
                 </Box>
                 <Stack direction="column" spacing={1}>
-                  <Button size="small" onClick={() => { setEditProduct(r); setOpenForm(true); }}>Editar</Button>
+                  <IconButton size="small" color="success" onClick={() => { setEditProduct(r); setOpenForm(true); }} title="Editar"><EditIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={async () => {
+                    const idVal = r._id?.$oid ?? r._id ?? r.id;
+                    const ok = await confirm.confirm({ title: 'Confirmar deleção', description: 'Deseja excluir este produto?', confirmText: 'Excluir' });
+                    if(!ok) return;
+                    try{
+                      await invoke('delete_produto', { id: String(idVal) });
+                      notify.notify({ message: 'Produto excluído', severity: 'success' });
+                      fetchData(page, pageSize);
+                    }catch(e){ console.error('delete produto', e); notify.notify({ message: 'Erro ao excluir', severity: 'error' }); }
+                  }} title="Excluir"><DeleteIcon fontSize="small" /></IconButton>
                 </Stack>
               </Box>
             </Box>

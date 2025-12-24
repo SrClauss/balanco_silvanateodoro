@@ -13,6 +13,8 @@ export default function SuppliersPage(){
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
+  const confirm = useConfirm();
+  const notify = useNotify();
 
   async function load(){
     try{
@@ -24,8 +26,6 @@ export default function SuppliersPage(){
   useEffect(()=>{load()},[]);
 
   async function handleDelete(id: any){
-    const confirm = useConfirm();
-    const notify = useNotify();
     const ok = await confirm.confirm({ title: 'Excluir fornecedor', description: 'Confirma exclusão deste fornecedor?' });
     if(!ok) return;
     try{ await invoke('delete_fornecedor', { id: id }); load(); notify.notify({ message: 'Fornecedor excluído', severity: 'success' }); }catch(e){ console.error(e); notify.notify({ message: 'Erro ao excluir', severity: 'error' }); }

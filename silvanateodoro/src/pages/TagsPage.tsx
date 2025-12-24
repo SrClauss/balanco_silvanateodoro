@@ -13,6 +13,8 @@ export default function TagsPage(){
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
+  const confirm = useConfirm();
+  const notify = useNotify();
 
   async function load(){
     try{
@@ -24,8 +26,6 @@ export default function TagsPage(){
   useEffect(()=>{load()},[]);
 
   async function handleDelete(id: any){
-    const confirm = useConfirm();
-    const notify = useNotify();
     const ok = await confirm.confirm({ title: 'Excluir tag', description: 'Confirma exclusão desta tag?' });
     if(!ok) return;
     try{ await invoke('delete_tag', { id: id }); load(); notify.notify({ message: 'Tag excluída', severity: 'success' }); }catch(e){ console.error(e); notify.notify({ message: 'Erro ao excluir', severity: 'error' }); }

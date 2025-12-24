@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip, Box, Typography, Switch, FormControlLabel } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete, Chip, Box, Typography, Switch, FormControlLabel, IconButton, Tooltip, InputAdornment } from '@mui/material';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
 import { invoke } from '@tauri-apps/api/core';
 import MicrophoneInput from './MicrophoneInput';
 import CreateEntityDialog from './CreateEntityDialog';
@@ -12,6 +13,7 @@ type Props = { open: boolean; onClose: () => void; product?: Produto | null; onS
 export default function ProductForm({ open, onClose, product, onSaved, resetKey }: Props){
   const [descricao, setDescricao] = useState('');
   const [codigoInterno, setCodigoInterno] = useState('');
+  const [suggestedCodigo, setSuggestedCodigo] = useState<string>('');
   const [tamanho, setTamanho] = useState('');
   const [precoCusto, setPrecoCusto] = useState<number | undefined>(undefined);
   const [precoVenda, setPrecoVenda] = useState<number | undefined>(undefined);
@@ -45,8 +47,20 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
   const prevResetKey = useRef<number | undefined>(undefined);
   useEffect(()=>{
     if(typeof resetKey !== 'undefined' && resetKey !== prevResetKey.current){
-      // clear form when resetKey changes
-      setDescricao(''); setCodigoInterno(''); setTamanho(''); setPrecoCusto(undefined); setPrecoVenda(undefined); setPrecoCustoStr(''); setPrecoVendaStr(''); setSelectedFornecedor(null); setSelectedMarca(null); setSelectedTags([]); setItems([]); setUpdateAutomatico(true);
+      // clear form when resetKey changes (no default stock item here; default applied only on save when user didn't touch items)
+      setDescricao('');
+      setCodigoInterno('');
+      setTamanho('');
+      setPrecoCusto(undefined);
+      setPrecoVenda(undefined);
+      setPrecoCustoStr('');
+      setPrecoVendaStr('');
+      setSelectedFornecedor(null);
+      setSelectedMarca(null);
+      setSelectedTags([]);
+      setItems([]);
+      setItemsTouched(false);
+      setUpdateAutomatico(true);
       prevResetKey.current = resetKey;
     }
   },[resetKey]);
@@ -65,6 +79,7 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
 
   // stock items (item_produto)
   const [items, setItems] = useState<Array<{ id?: string | { $oid?: string }, data_aquisicao: string, quantidade: number }>>([]);
+  const [itemsTouched, setItemsTouched] = useState<boolean>(false);
 
   async function loadOptions(){
     try{
@@ -79,18 +94,62 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
 
   useEffect(()=>{ if(open) loadOptions(); },[open]);
 
+  // fetch suggested next codigo_interno for new products
+  useEffect(() => {
+    let mounted = true;
+    async function fetchSuggested(){
+      if(!open) return;
+      if(product) { // editing, keep existing
+        setSuggestedCodigo('');
+        return;
+      }
+      try{
+        const res: any = await invoke('next_codigo_interno');
+        if(mounted) setSuggestedCodigo(String(res || ''));
+      }catch(e){ console.error('next_codigo_interno', e); }
+    }
+    fetchSuggested();
+    return () => { mounted = false; }
+  }, [open, product]);
+
   // initialize items when product is present
   useEffect(()=>{
     if(product){
-      setItems((product.item_produto || []).map((it:any) => ({ id: (it as any)?._id ?? (it as any).id, data_aquisicao: it.data_aquisicao || '', quantidade: (it.quantidade ?? 0) })))
+      setItems((product.item_produto || []).map((it:any) => ({ id: (it as any)?._id ?? (it as any).id, data_aquisicao: it.data_aquisicao || '', quantidade: (it.quantidade ?? 0) })));
+      setItemsTouched(false);
     }
   },[product]);
+
+
 
   const notify = useNotify();
 
   async function handleSave(){
     if(!descricao || descricao.trim().length === 0){ notify.notify({ message: 'Descrição é obrigatória', severity: 'warning' }); return; }
-    const produto: any = { codigo_interno: codigoInterno, descricao, tamanho, preco_custo: precoCusto, preco_venda: precoVenda, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags, item_produto: (items || []).map(it => ({ data_aquisicao: it.data_aquisicao, quantidade: it.quantidade })), update_automatico: updateAutomatico };
+
+    // if codigoInterno empty, fetch suggested next
+    let finalCodigo = codigoInterno;
+    if(!finalCodigo){
+      try{ const suggested: any = await invoke('next_codigo_interno'); finalCodigo = String(suggested || ''); setCodigoInterno(finalCodigo); }
+      catch(e){ console.error('next_codigo_interno', e); }
+    }
+
+    // normalize items: fill invalid dates and quantities
+    const todayIso = new Date().toISOString().slice(0,10);
+    let itemPayload = (items || []).map(it => {
+      const quantidadeNum = Number(it.quantidade) || 0;
+      const data_aquisicao = it.data_aquisicao && String(it.data_aquisicao).trim() ? it.data_aquisicao : todayIso;
+      return { data_aquisicao, quantidade: quantidadeNum <= 0 ? 1 : quantidadeNum };
+    });
+
+    const totalQty = itemPayload.reduce((acc, it) => acc + (Number(it.quantidade) || 0), 0);
+
+    // If user didn't open/interact with items (itemsTouched === false) and didn't add valid stock, use default 1 item for today
+    if(!itemsTouched && (itemPayload.length === 0 || totalQty <= 0)){
+      itemPayload = [{ data_aquisicao: todayIso, quantidade: 1 }];
+    }
+
+    const produto: any = { codigo_interno: finalCodigo, descricao, tamanho, preco_custo: precoCusto, preco_venda: precoVenda, marca: selectedMarca?.nome ?? selectedMarca, fornecedor: selectedFornecedor, tags: selectedTags, item_produto: itemPayload, update_automatico: updateAutomatico };
     try{
       if(product && product._id){
         // keep id if present — normalize to string if it is { $oid }
@@ -116,7 +175,27 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Novo produto</DialogTitle>
       <DialogContent>
-        <TextField label="Código interno" fullWidth value={codigoInterno} onChange={(e)=>setCodigoInterno(e.currentTarget.value)} sx={{ mb: 2 }} />
+        <TextField
+          label="Código interno"
+          fullWidth
+          value={codigoInterno}
+          onChange={(e)=>setCodigoInterno(e.currentTarget.value)}
+          sx={{ mb: 2 }}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <Tooltip title={suggestedCodigo ? `Sugerir ${suggestedCodigo}` : 'Sugerir próximo código'}>
+                  <span>
+                    <IconButton size="small" onClick={() => { if(suggestedCodigo) setCodigoInterno(suggestedCodigo); }} disabled={!suggestedCodigo}>
+                      <AutorenewIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </InputAdornment>
+            )
+          }}
+          helperText={suggestedCodigo ? `Próximo sugerido: ${suggestedCodigo}` : ''}
+        />
         <TextField label="Descrição" fullWidth value={descricao} onChange={(e)=>setDescricao(e.currentTarget.value)} sx={{ mb: 2 }} />
         <MicrophoneInput value={descricao} onChange={(v)=>setDescricao(v)} />
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
@@ -258,16 +337,18 @@ export default function ProductForm({ open, onClose, product, onSaved, resetKey 
               <TextField label="Data aquisição" type="date" value={it.data_aquisicao} onChange={(e)=>{
                 const v = e.currentTarget.value;
                 setItems(prev => prev.map((p, i) => i === idx ? { ...p, data_aquisicao: v } : p));
+                setItemsTouched(true);
               }} sx={{ width: 160 }} InputLabelProps={{ shrink: true }} />
               <TextField label="Quantidade" type="number" value={String(it.quantidade)} onChange={(e)=>{
                 const v = e.currentTarget.value;
                 const n = v === '' ? 0 : Number(v);
                 setItems(prev => prev.map((p, i) => i === idx ? { ...p, quantidade: Number.isFinite(n) ? n : 0 } : p));
+                setItemsTouched(true);
               }} sx={{ width: 120 }} />
-              <Button onClick={()=> setItems(prev => prev.filter((_, i) => i !== idx))}>Remover</Button>
+              <Button onClick={()=> { setItems(prev => prev.filter((_, i) => i !== idx)); setItemsTouched(true); }}>Remover</Button>
             </Box>
           ))}
-          <Button variant="outlined" onClick={()=> setItems(prev => [...prev, { data_aquisicao: new Date().toISOString().slice(0,10), quantidade: 1 }])}>Adicionar item</Button>
+          <Button variant="outlined" onClick={()=> { setItems(prev => [...prev, { data_aquisicao: new Date().toISOString().slice(0,10), quantidade: 1 }]); setItemsTouched(true); }}>Adicionar item</Button>
         </Box>
       </DialogContent>
       <DialogActions>

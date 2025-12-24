@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from 'react';
-import { AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemText, ListItemButton, useMediaQuery, Box, Divider, Tabs, Tab, BottomNavigation, BottomNavigationAction } from '@mui/material';
+import { AppBar, Toolbar, Typography, useMediaQuery, Box, Tabs, Tab, BottomNavigation, BottomNavigationAction } from '@mui/material';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LabelIcon from '@mui/icons-material/Label';
 import BusinessIcon from '@mui/icons-material/Business';
 import CategoryIcon from '@mui/icons-material/Category';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import ProductsPage from '../pages/ProductsPage';
 import TagsPage from '../pages/TagsPage';
@@ -20,10 +20,8 @@ const routes = [
 
 export default function Layout(){
   const mobile = useMediaQuery('(max-width:600px)');
-  const desktop = useMediaQuery('(min-width:900px)');
   const navigate = useNavigate();
   const location = useLocation();
-  const drawerWidth = 240;
 
   // active path from location or fallback to first route
   const activePath = useMemo(() => {
@@ -46,23 +44,7 @@ export default function Layout(){
     return () => window.removeEventListener('keydown', onKey);
   }, [navigate]);
 
-  const drawer = (
-    <Box sx={{ width: drawerWidth }} role="presentation">
-      <List>
-        {routes.map(r => (
-          <ListItem key={r.path} component={Link} to={r.path} disablePadding>
-            <ListItemButton>
-              <ListItemText primary={r.label} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      <Divider />
-      <Box sx={{ p: 2 }}>
-        <Typography variant="caption">Versão móvel: {mobile ? 'sim' : 'não'}</Typography>
-      </Box>
-    </Box>
-  );
+
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', flexDirection: 'column', pt: { xs: 'env(safe-area-inset-top)', sm: 0 } }}>
@@ -75,8 +57,7 @@ export default function Layout(){
           top: 0,
           zIndex: (theme) => (theme as any).zIndex?.appBar ?? 1100,
           backdropFilter: 'saturate(1.1) blur(6px)',
-          width: desktop ? `calc(100% - ${drawerWidth}px)` : '100%',
-          ml: desktop ? `${drawerWidth}px` : 0,
+          width: '100%'
         }}
       >
         <Toolbar sx={{ minHeight: { xs: '56px', sm: '64px' }, alignItems: 'center' }}>
@@ -94,16 +75,7 @@ export default function Layout(){
         </Toolbar>
       </AppBar>
 
-      {/* Drawer: permanent on desktop only */}
-      {desktop && (
-        <Drawer
-          variant="permanent"
-          open
-          sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box', pt: { xs: 'env(safe-area-inset-top)', sm: 0 } } }}
-        >
-          {drawer}
-        </Drawer>
-      )}
+
 
       <Box component="main" sx={{ p: 2, flex: 1 }}>
         {/* Routed pages render here */}

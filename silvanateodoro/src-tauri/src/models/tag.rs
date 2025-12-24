@@ -1,7 +1,7 @@
 use crate::connect::Conn;
 use crate::models::updatable::Updatable;
 use mongodb::bson::oid::ObjectId;
-use mongodb::bson::{self, doc, Bson, Document};
+use mongodb::bson::{doc, Document};
 use mongodb::options::IndexOptions;
 use mongodb::IndexModel;
 use serde::{Deserialize, Serialize};
@@ -25,10 +25,10 @@ impl Updatable for Tag {
 
     async fn update_all_products(&self, conn: &Conn) -> Result<String, mongodb::error::Error> {
         // atualiza tags embutidas nos produtos usando update pipeline ($map + $cond)
-        if self.id.is_none() {
+        if self._id.is_none() {
             return Ok("No id, skipping tag product update".into());
         }
-        let id = self.id.unwrap();
+        let id = self._id.unwrap();
         // build a lightweight tag doc that contains only the name and keeps _id to maintain linkage
         let tag_doc = doc! { "_id": &id, "nome": &self.nome };
 
