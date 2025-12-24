@@ -1,4 +1,4 @@
-name: Build Tauri (Windows1)
+name: Build Tauri (Windows)
 
 on:
   workflow_dispatch:
@@ -20,18 +20,9 @@ jobs:
           cache-dependency-path: 'silvanateodoro/package-lock.json'
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
-
-      - name: Add Windows target
-        run: |
-          rustup target add x86_64-pc-windows-msvc || true
-
-      - name: Install system dependencies (choco)
-        run: |
-          echo "Windows runner should already have required build tools (MSVC). If you need extra packages, add them here."
+          targets: x86_64-pc-windows-msvc
 
       - name: Install JS deps
         run: npm ci
@@ -47,7 +38,6 @@ jobs:
         run: npx tauri build --target x86_64-pc-windows-msvc
         working-directory: ./silvanateodoro
         env:
-          # Expose any secrets needed for signing or notarization here
           RUSTFLAGS: "-C target-cpu=native"
 
       - name: Upload Windows bundles
@@ -56,9 +46,9 @@ jobs:
           name: tauri-windows-bundles
           path: silvanateodoro/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
 
-      - name: Optional: create GitHub Release and attach artifacts
-        if: "startsWith(github.ref, 'refs/tags/')"
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
           files: "silvanateodoro/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe"
         env:
