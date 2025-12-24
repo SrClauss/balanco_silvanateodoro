@@ -1,4 +1,4 @@
-name: Build Tauri (Windows)
+name: Build Tauri (Windows1)
 
 on:
   workflow_dispatch:
