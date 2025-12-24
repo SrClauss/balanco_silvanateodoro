@@ -54,12 +54,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tauri-windows-bundles
-          path: silvanateodoro/src-tauri/target/release/bundle/nsis/*.exe
+          path: silvanateodoro/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
 
       - name: Optional: create GitHub Release and attach artifacts
         if: "startsWith(github.ref, 'refs/tags/')"
         uses: softprops/action-gh-release@v1
         with:
-          files: "silvanateodoro/src-tauri/target/release/bundle/nsis/*.exe"
+          files: "silvanateodoro/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
